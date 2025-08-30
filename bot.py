@@ -189,7 +189,12 @@ def add_test_products():
 def get_subcategories(parent_id=None):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT id, name FROM categories WHERE parent_id IS %s', (parent_id,))
+    if parent_id is None:
+        # Для parent_id = NULL используем IS NULL
+        cursor.execute("SELECT id, name FROM categories WHERE parent_id IS NULL")
+    else:
+        # Для числа используем = %s
+        cursor.execute("SELECT id, name FROM categories WHERE parent_id = %s", (parent_id,))
     rows = cursor.fetchall()
     conn.close()
     return {str(row['id']): row['name'] for row in rows}
