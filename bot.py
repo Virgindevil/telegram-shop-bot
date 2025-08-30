@@ -192,7 +192,7 @@ def get_subcategories(parent_id=None):
     cursor.execute('SELECT id, name FROM categories WHERE parent_id IS %s', (parent_id,))
     rows = cursor.fetchall()
     conn.close()
-    return {str(row[0]): row[1] for row in rows}
+    return {str(row['id']): row['name'] for row in rows}
 
 def has_products(category_id):
     conn = get_db_connection()
@@ -209,7 +209,7 @@ def get_products_by_category(category_id):
     rows = cursor.fetchall()
     conn.close()
     return {
-        str(row[0]): {"name": row[1], "price": row[2], "stock": row[3], "image_url": row[4]}
+        str(row['id']): {"name": row['name'], "price": row['price'], "stock": row['stock'], "image_url": row['image_url']}
         for row in rows
     }
 
@@ -219,7 +219,7 @@ def get_category_name(category_id):
     cursor.execute('SELECT name FROM categories WHERE id = %s', (category_id,))
     row = cursor.fetchone()
     conn.close()
-    return row[0] if row else "Каталог"
+    return row['id'] if row else "Каталог"
 
 # ✅ НОВАЯ ФУНКЦИЯ: СОХРАНЕНИЕ ЗАКАЗА
 def save_order(user_id, username, items, address, total_price, payment_method, payment_proof, payment_proof_type):
