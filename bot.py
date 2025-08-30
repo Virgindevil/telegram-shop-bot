@@ -1,6 +1,18 @@
 # -*- coding: utf-8 -*-
-import sqlite3
+
+
+#import sqlite3
 import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import os
+
+# Получаем URL базы из переменной окружения
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+def get_db_connection():
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 from flask import Flask
@@ -63,7 +75,7 @@ def init_db():
 
 # --- ФУНКЦИИ ДЛЯ РАБОТЫ С БАЗОЙ ---
 def add_test_products():
-    conn = sqlite3.connect('shop.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT COUNT(*) FROM categories')
     if cursor.fetchone()[0] == 0:
@@ -98,7 +110,7 @@ def add_test_products():
             ("А3", 6),                          #id22            
             ("А4", 6),                          #id23
         ]
-        cursor.executemany('INSERT INTO categories (name, parent_id) VALUES (?, ?)', categories)
+        cursor.executemany('INSERT INTO categories (name, parent_id) VALUES (%s, %s)', categories)
         print("Тестовые категории добавлены.")
     cursor.execute('SELECT COUNT(*) FROM products')
     if cursor.fetchone()[0] == 0:
@@ -165,7 +177,7 @@ def add_test_products():
             ("Близняшки", 150, 5, "posters/a4/twins.jpg", 23),
         ]
         cursor.executemany(
-            'INSERT INTO products (name, price, stock, image_url, category_id) VALUES (?, ?, ?, ?, ?)',
+            'INSERT INTO products (name, price, stock, image_url, category_id) VALUES (%s, %s, %s, %s, %s)',
             products
         )
         print("Тестовые товары добавлены.")
@@ -173,25 +185,25 @@ def add_test_products():
     conn.close()
 
 def get_subcategories(parent_id=None):
-    conn = sqlite3.connect('shop.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT id, name FROM categories WHERE parent_id IS ?', (parent_id,))
+    cursor.execute('SELECT id, name FROM categories WHERE parent_id IS %s', (parent_id,))
     rows = cursor.fetchall()
     conn.close()
     return {str(row[0]): row[1] for row in rows}
 
 def has_products(category_id):
-    conn = sqlite3.connect('shop.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT COUNT(*) FROM products WHERE category_id = ?', (category_id,))
+    cursor.execute('SELECT COUNT(*) FROM products WHERE category_id = %s', (category_id,))
     count = cursor.fetchone()[0]
     conn.close()
     return count > 0
 
 def get_products_by_category(category_id):
-    conn = sqlite3.connect('shop.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT id, name, price, stock, image_url FROM products WHERE category_id = ?', (category_id,))
+    cursor.execute('SELECT id, name, price, stock, image_url FROM products WHERE category_id = %s', (category_id,))
     rows = cursor.fetchall()
     conn.close()
     return {
@@ -200,20 +212,20 @@ def get_products_by_category(category_id):
     }
 
 def get_category_name(category_id):
-    conn = sqlite3.connect('shop.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT name FROM categories WHERE id = ?', (category_id,))
+    cursor.execute('SELECT name FROM categories WHERE id = %s', (category_id,))
     row = cursor.fetchone()
     conn.close()
     return row[0] if row else "Каталог"
 
 # ✅ НОВАЯ ФУНКЦИЯ: СОХРАНЕНИЕ ЗАКАЗА
 def save_order(user_id, username, items, address, total_price, payment_method, payment_proof, payment_proof_type):
-    conn = sqlite3.connect('shop.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO orders (user_id, username, items, address, total_price, payment_method, payment_proof, payment_proof_type)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
     ''', (user_id, username, items, address, total_price, payment_method, payment_proof, payment_proof_type))
     conn.commit()
     conn.close()
@@ -224,10 +236,10 @@ def update_stock(product_id, quantity_sold):
     Уменьшает количество товара в базе данных.
     Вызывается после успешного оформления заказа.
     """
-    conn = sqlite3.connect('shop.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute('UPDATE products SET stock = stock - ? WHERE id = ?', (quantity_sold, product_id))
+        cursor.execute('UPDATE products SET stock = stock - %s WHERE id = %s', (quantity_sold, product_id))
         conn.commit()
     except Exception as e:
         print(f"Ошибка при обновлении количества товара {product_id}: {e}")
@@ -364,9 +376,9 @@ async def show_product_details(update: Update, context: ContextTypes.DEFAULT_TYP
                 print(f"Ошибка: {e}")
         context.user_data[user_id]["product_messages"].clear()
     product_id = int(query.data.split("_")[2])
-    conn = sqlite3.connect('shop.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT name, price, stock, image_url FROM products WHERE id = ?', (product_id,))
+    cursor.execute('SELECT name, price, stock, image_url FROM products WHERE id = %s', (product_id,))
     row = cursor.fetchone()
     conn.close()
     if not row:
@@ -419,9 +431,9 @@ async def add_to_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     product_id = int(query.data.split("_")[3])
 
-    conn = sqlite3.connect('shop.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT id, name, price, stock FROM products WHERE id = ?', (product_id,))
+    cursor.execute('SELECT id, name, price, stock FROM products WHERE id = %s', (product_id,))
     row = cursor.fetchone()
     conn.close()
 
@@ -841,9 +853,9 @@ async def handle_payment_proof(update: Update, context: ContextTypes.DEFAULT_TYP
 
     cart = context.user_data[user_id]["cart"]
     product_ids = list(cart.keys())
-    conn = sqlite3.connect('shop.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
-    placeholders = ", ".join("?" * len(product_ids))
+    placeholders = ", ".join("%s" * len(product_ids))
     cursor.execute(f'''
         SELECT p.id, p.name, c.name 
         FROM products p
@@ -907,9 +919,9 @@ async def check_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=context.user_data[user_id]["last_message_id"])
         except Exception as e:
             print(f"Ошибка при удалении сообщения: {e}")
-    conn = sqlite3.connect('shop.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT items, address, total_price, payment_method FROM orders WHERE user_id = ? ORDER BY id DESC', (user_id,))
+    cursor.execute('SELECT items, address, total_price, payment_method FROM orders WHERE user_id = %s ORDER BY id DESC', (user_id,))
     orders = cursor.fetchall()
     conn.close()
     if not orders:
@@ -942,15 +954,15 @@ async def update_stock_admin(update: Update, context: ContextTypes.DEFAULT_TYPE)
     except ValueError:
         await update.message.reply_text("Некорректные параметры.")
         return
-    conn = sqlite3.connect('shop.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT name FROM products WHERE id = ?', (product_id,))
+    cursor.execute('SELECT name FROM products WHERE id = %s', (product_id,))
     product = cursor.fetchone()
     if not product:
         await update.message.reply_text(f"Товар с ID {product_id} не найден.")
         conn.close()
         return
-    cursor.execute('UPDATE products SET stock = ? WHERE id = ?', (new_stock, product_id))
+    cursor.execute('UPDATE products SET stock = %s WHERE id = %s', (new_stock, product_id))
     conn.commit()
     conn.close()
     await update.message.reply_text(f"Количество товара '{product[0]}' обновлено до {new_stock}.")
@@ -969,7 +981,7 @@ async def view_all_orders(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     page = context.user_data.get("view_all_orders_page", 1)
     PAGE_SIZE = 5
-    conn = sqlite3.connect('shop.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT id, user_id, username, items, address, total_price, payment_method, payment_proof, payment_proof_type FROM orders ORDER BY id DESC')
     orders = cursor.fetchall()
@@ -1065,8 +1077,8 @@ async def close_orders(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- ЗАПУСК БОТА ---
 def main():
-    init_db()
-    add_test_products()
+    #init_db()
+    #add_test_products()
     keep_alive()
     TOKEN = "7771688126:AAFtHtiBQFs_Hb8HMr91QvYNKG5Gx1QRG4E"
     application = Application.builder().token(TOKEN).build()
