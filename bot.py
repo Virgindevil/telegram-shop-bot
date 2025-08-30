@@ -203,7 +203,7 @@ def has_products(category_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT COUNT(*) FROM products WHERE category_id = %s', (category_id,))
-    count = cursor.fetchone()[0]
+    count = cursor.fetchone()
     conn.close()
     return count > 0
 
