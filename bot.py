@@ -1078,7 +1078,7 @@ async def close_orders(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # --- ЗАПУСК БОТА ---
 def main():
     #init_db()
-    #add_test_products()
+    add_test_products()
     keep_alive()
     TOKEN = "7771688126:AAFtHtiBQFs_Hb8HMr91QvYNKG5Gx1QRG4E"
     application = Application.builder().token(TOKEN).build()
