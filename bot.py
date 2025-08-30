@@ -78,7 +78,8 @@ def add_test_products():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT COUNT(*) FROM categories')
-    row = cursor.fetchone() if row['count'] == 0:
+    row = cursor.fetchone()
+    if row['count'] == 0:
         categories = [
             ("Стикеры", None),                  #id1
             ("Брелки", None),                   #id2
@@ -113,7 +114,8 @@ def add_test_products():
         cursor.executemany('INSERT INTO categories (name, parent_id) VALUES (%s, %s)', categories)
         print("Тестовые категории добавлены.")
     cursor.execute('SELECT COUNT(*) FROM products')
-    row = cursor.fetchone() if row['count'] == 0:
+    row = cursor.fetchone()
+    if row['count'] == 0:
             #Название товара, цена, количество, путь к картинке, привязка к категории
         products = [
             # Товары Стикеров 
