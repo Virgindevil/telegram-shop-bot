@@ -1,6 +1,22 @@
 # -*- coding: utf-8 -*-
 import sqlite3
 import os
+from flask import Flask
+from threading import Thread
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Бот работает! 🚀"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+    
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
@@ -1050,6 +1066,7 @@ async def close_orders(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     init_db()
     add_test_products()
+    keep_alive()
     TOKEN = "7771688126:AAFtHtiBQFs_Hb8HMr91QvYNKG5Gx1QRG4E"
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
