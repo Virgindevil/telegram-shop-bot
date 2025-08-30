@@ -247,7 +247,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             print(f"Ошибка: {e}")
     if user_id not in context.user_data:
         context.user_data[user_id] = {"cart": {}, "reserved_stock": {}, "category_path": []}
-    context.user_data[user_id]["username"] = update.message.from_user.username
+    username = update.message.from_user.username
+    context.user_data[user_id]["username"] = username if username else f"user_{user_id}"
     keyboard = [
         [InlineKeyboardButton("🖼️ Просмотреть товары", callback_data="view_products")],
         [InlineKeyboardButton("🛒 Корзина", callback_data="view_cart")],
@@ -868,7 +869,7 @@ async def handle_payment_proof(update: Update, context: ContextTypes.DEFAULT_TYP
     # ✅ СОХРАНЯЕМ ЗАКАЗ
     save_order(
         user_id=user_id,
-        username=context.user_data[user_id]["username"],
+        username=context.user_data[user_id].get('username', f"user_{user_id}"),
         items=items,
         address=context.user_data[user_id]["address"],
         total_price=final_price,
@@ -882,7 +883,8 @@ async def handle_payment_proof(update: Update, context: ContextTypes.DEFAULT_TYP
         update_stock(product_id, item["quantity"])
 
     # Уведомление админу
-    admin_message = (f"Новый заказ от @{context.user_data[user_id]['username']}:\n"
+    username = context.user_data[user_id]['username']
+    admin_message = (f"Новый заказ от {context.user_data[user_id]['username']}:\n"
                      f"Товары: {items}\n"
                      f"Адрес: {context.user_data[user_id]['address']}\n"
                      f"Сумма: {final_price} руб.\n"
