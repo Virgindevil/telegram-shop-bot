@@ -89,7 +89,12 @@ def update_stock(product_id, quantity_sold):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
-    
+    context.user_data[user_id] = {
+        "cart": {},
+        "reserved_stock": {},  # ← Добавлено
+        "category_path": [],
+        "state": None
+    }
     if "last_message_id" in context.user_data.get(user_id, {}):
         try:
             await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=context.user_data[user_id]["last_message_id"])
@@ -257,6 +262,13 @@ async def add_to_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     user_id = query.from_user.id
 
+    if user_id not in context.user_data:
+        context.user_data[user_id] = {
+            "cart": {},
+            "reserved_stock": {},
+            "category_path": [],
+            "state": None
+        }
     # Удаляем старое сообщение (например, с фото товара)
     if "last_message_id" in context.user_data.get(user_id, {}):
         try:
