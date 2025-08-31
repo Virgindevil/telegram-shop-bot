@@ -1,161 +1,27 @@
 # -*- coding: utf-8 -*-
 import sqlite3
 import os
+
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+from flask import Flask
+from threading import Thread
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Бот работает! 🚀"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
 
 ADMIN_ID = "753866988"
-
-# --- ИНИЦИАЛИЗАЦИЯ БАЗЫ ДАННЫХ ---
-def init_db():
-    conn = sqlite3.connect('shop.db', timeout=10)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS categories (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            parent_id INTEGER,
-            FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE CASCADE
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS products (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            price INTEGER NOT NULL,
-            stock INTEGER NOT NULL,
-            image_url TEXT,
-            category_id INTEGER,
-            FOREIGN KEY(category_id) REFERENCES categories(id)
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS orders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            username TEXT NOT NULL,
-            items TEXT NOT NULL,
-            address TEXT NOT NULL,
-            total_price INTEGER NOT NULL,
-            payment_method TEXT NOT NULL,
-            payment_proof TEXT,
-            payment_proof_type TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-
-# --- ФУНКЦИИ ДЛЯ РАБОТЫ С БАЗОЙ ---
-def add_test_products():
-    conn = sqlite3.connect('shop.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT COUNT(*) FROM categories')
-    if cursor.fetchone()[0] == 0:
-        categories = [
-            ("Стикеры", None),                  #id1
-            ("Брелки", None),                   #id2
-            ("Стенды", None),                   #id3
-            ("Значки", None),                   #id4
-            ("Открытки", None),                 #id5
-            ("Постеры", None),                  #id6
-            # Подпапки в Стикерах (в id1)
-            ("Матовые", 1),                     #id7
-            ("Сахарные", 1),                    #id8
-            ("Прозрачные", 1),                  #id9
-            # Подпапки в Брелках (в id2)    
-            ("Осенние котики", 2),              #id10
-            ("Головы-Котики", 2),               #id11
-            ("Составные", 2),                   #id12
-            ("Другие", 2),                      #id13
-            # Подпапки в Стендах (в id3)
-            ("Мадока", 3),                      #id14
-            # Подпапки в Значках (в id4)
-            ("Круглые", 4),                     #id15
-            ("Круглые с эффектами", 4),         #id16
-            ("Сердечки твёрдые", 4),             #id17
-            ("Сердечки мягкие", 4),            #id18
-            # Подпапки в Открытках (в id5)
-            ("Односторонние", 5),               #id19
-            ("Двухсторонние", 5),               #id20
-            ("Текстурные", 5),                  #id21            
-            # Подпапки в Постерах (в id6)
-            ("А3", 6),                          #id22            
-            ("А4", 6),                          #id23
-        ]
-        cursor.executemany('INSERT INTO categories (name, parent_id) VALUES (?, ?)', categories)
-        print("Тестовые категории добавлены.")
-    cursor.execute('SELECT COUNT(*) FROM products')
-    if cursor.fetchone()[0] == 0:
-            #Название товара, цена, количество, путь к картинке, привязка к категории
-        products = [
-            # Товары Стикеров 
-            ("Осеннее настроение", 350, 10, "stickers/orig/authum_o.jpg", 7),
-            ("Кошка желе", 350, 5, "stickers/orig/jelly_o.jpg", 7),
-            ("Реальные упыри", 350, 3, "stickers/orig/vampires_o.jpg", 7),
-            ("Осеннее настроение", 350, 10, "stickers/sugar/authum_s.jpg", 8),
-            ("Поняши", 350, 5, "stickers/sugar/pony_s.png", 8),
-            ("Реальные упыри", 350, 3, "stickers/sugar/vampires_s.jpg", 8),
-            ("Кошка желе", 350, 3, "stickers/trassp/jelly_t.png", 9),
-            # Товары Брелков
-            ("Ведьмочка", 350, 10, "brelocks/authum_cats/cat_authum_1.png", 10),
-            ("Призрак", 350, 10, "brelocks/authum_cats/cat_authum_2.png", 10),
-            ("Приведение", 350, 10, "brelocks/authum_cats/cat_authum_3.png", 10),
-            ("Тыковка", 350, 10, "brelocks/authum_cats/cat_authum_4.png", 10),
-            ("Грибная голова", 400, 10, "brelocks/cat_heads/cat_head_1.png", 11),
-            ("Голова Слайм", 400, 10, "brelocks/cat_heads/cat_head_2.png", 11),
-            ("Зомби голова", 400, 10, "brelocks/cat_heads/cat_head_3.png", 11),
-            ("Труп невесты (брелок)", 550, 10, "brelocks/particles/wife_corpse.png", 12),
-            ("По ту сторону изгороди (большой)", 1500, 10, "brelocks/particles/OtGW_big.png", 12),
-            ("Кот зомби", 400, 10, "brelocks/others/cat_zombie.png", 13),
-            ("Кот вампир", 400, 10, "brelocks/others/cat_vampire.png", 13),            
-            ("По ту сторону изгороди (подушечка)", 600, 10, "brelocks/others/OtGW_small.png", 13),
-            # Товары Стендах
-            ("Стенд Мадока", 1500, 10, "stands/madoka.png", 14),      
-            # Товары Значках
-            ("Грибная голова (значок)", 150, 10, "pins/round/cat_head_mushroom.jpg", 15),   
-            ("Голова Слайм красный (значок)", 150, 10, "pins/round_w/cat_head_slime_1.jpg", 16),   
-            ("Голова Слайм розовый (значок)", 150, 10, "pins/round_w/cat_head_slime_2.jpg", 16),   
-            ("Зомби голова (значок)", 150, 10, "pins/round/cat_head_zombie.jpg", 15),   
-            ("Не слышу зла (значок)", 150, 10, "pins/round/no_hear.jpg", 15),   
-            ("Не вижу зла (значок)", 150, 10, "pins/round/no_see.jpg", 15),   
-            ("Не говорю зла (значок)", 150, 10, "pins/round/no_speak.jpg", 15),   
-            ("Напиток Grimace", 150, 10, "pins/round_w/vommit.jpg", 16),   
-            ("Бубльгум (твёрдый значок)", 350, 10, "pins/heart_p/bblgum_1.png", 17),   
-            ("Марсилин (твёрдый значок)", 350, 10, "pins/heart_p/marceline.jpg", 17),   
-            ("Бубльгум (мягкий значок)", 350, 10, "pins/heart_s/bublegum.jpg", 18),   
-            ("Марсилин (мягкий значок)", 350, 10, "pins/heart_s/marciline.jpg", 18),   
-            # Товары Открыток
-            ("Клоун", 100, 10, "postcard/1side/clown.jpg", 19),
-            ("Девочка Лиса", 100, 10, "postcard/1side/fox_girl.jpg", 19),
-            ("Призрак школьница", 100, 10, "postcard/1side/ghost_1.jpg", 19),
-            ("Джефф", 100, 10, "postcard/1side/jeff.jpg", 19),
-            ("Девочка Сакура", 100, 10, "postcard/1side/sakura_girl.jpg", 19),
-            ("Тильда и Уильям", 100, 10, "postcard/1side/tilda_will.jpg", 19),
-            ("Третья Алиса", 150, 10, "postcard/2side/alice_3.jpg", 20),
-            ("Четвёртая Алиса", 150, 10, "postcard/2side/alice_4.jpg", 20),
-            ("Бимбо Йеннифер", 150, 10, "postcard/2side/bimbo_yenn.jpg", 20),
-            ("Цирилла", 150, 10, "postcard/2side/witcher_ciri.jpg", 20),
-            ("Призрак (и) девушка", 150, 10, "postcard/2side/ghost_boy.jpg", 20),
-            ("Драри", 150, 10, "postcard/2side/drari.jpg", 20),
-            # Товары Постеров  
-            ("Маления", 350, 5, "posters/a3/malenia.jpg", 22),
-            ("Марселин", 350, 5, "posters/a3/marciline_a3.jpg", 22),
-            ("Мику с жёлтым фоном", 350, 5, "posters/a3/miku_1.jpg", 22),
-            ("Мику с красным фоном", 350, 5, "posters/a3/miku_2.jpg", 22),
-            ("Мику с феолетовым фоном", 350, 5, "posters/a3/miku_3.jpg", 22),
-            ("Труп невесты", 350, 5, "posters/a3/wifeCorpse.jpg", 22),
-            ("Паучиха", 150, 5, "posters/a4/spider.jpg", 23),
-            ("Швея", 150, 5, "posters/a4/dressmaker.jpg", 23),
-            ("Близняшки", 150, 5, "posters/a4/twins.jpg", 23),
-        ]
-        cursor.executemany(
-            'INSERT INTO products (name, price, stock, image_url, category_id) VALUES (?, ?, ?, ?, ?)',
-            products
-        )
-        print("Тестовые товары добавлены.")
-    conn.commit()
-    conn.close()
 
 def get_subcategories(parent_id=None):
     conn = sqlite3.connect('shop.db')
@@ -1050,9 +916,8 @@ async def close_orders(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # --- ЗАПУСК БОТА ---
-def main():
-    init_db()
-    add_test_products()
+def main():   
+    keep_alive()
     TOKEN = "7771688126:AAFtHtiBQFs_Hb8HMr91QvYNKG5Gx1QRG4E"
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
