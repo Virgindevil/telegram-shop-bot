@@ -582,6 +582,15 @@ async def handle_user_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     user_id = update.message.from_user.id
     text = update.message.text
 
+    if user_id not in context.user_data:
+        context.user_data[user_id] = {
+            "cart": {},
+            "reserved_stock": {},
+            "category_path": [],
+            "state": None
+        }
+    
+    
     # ✅ Инициализируем данные пользователя, если их нет
     if user_id not in context.user_data:
         context.user_data[user_id] = {}
