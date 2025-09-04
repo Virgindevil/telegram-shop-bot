@@ -257,8 +257,6 @@ async def add_to_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()    
     user_id = query.from_user.id
-    if user_id not in context.user_data:
-        context.user_data[user_id] = {"cart": {}, "reserved_stock": {}, "category_path": []}
 
     # Удаляем старое сообщение (например, с фото товара)
     if "last_message_id" in context.user_data.get(user_id, {}):
