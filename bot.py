@@ -84,7 +84,6 @@ def update_stock(product_id, quantity_sold):
     finally:
         conn.close()
 
-
 # --- ОСНОВНЫЕ КОМАНДЫ И ОБРАБОТЧИКИ ---
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
